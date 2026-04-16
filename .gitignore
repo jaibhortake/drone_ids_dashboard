@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.so
+
+# Virtual Environments
+venv/
+env/
+.env/
+.venv/
+ENV/
+
+# Environment Variables
+.env
+*.env
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Flask
+instance/
+*.db
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Distribution / Build
+dist/
+build/
+*.egg-info/

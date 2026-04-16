@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone IDS - Real-Time Dashboard</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333; min-height: 100vh; padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header {
+            background: rgba(255, 255, 255, 0.95); padding: 20px 30px; border-radius: 15px;
+            margin-bottom: 20px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
+        }
+        .header h1 { color: #667eea; font-size: 2em; }
+        .status-badge { padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 0.9em; }
+        .status-online { background: #10b981; color: white; }
+        .status-offline { background: #ef4444; color: white; }
+        .controls {
+            background: rgba(255, 255, 255, 0.95); padding: 20px 30px; border-radius: 15px;
+            margin-bottom: 20px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            display: flex; gap: 15px; flex-wrap: wrap;
+        }
+        .btn {
+            padding: 12px 24px; border: none; border-radius: 8px; font-size: 1em; font-weight: 600;
+            cursor: pointer; transition: all 0.3s; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { background: #5568d3; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:hover { background: #dc2626; transform: translateY(-2px); }
+        .btn-success { background: #10b981; color: white; }
+        .btn-success:hover { background: #059669; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+        .input-group { display: flex; gap: 10px; align-items: center; }
+        .input-group input {
+            padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1em; width: 300px;
+        }
+        .input-group input:focus { outline: none; border-color: #667eea; }
+        .dashboard-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px; margin-bottom: 20px;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.95); border-radius: 15px; padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .card h2 { color: #667eea; margin-bottom: 20px; font-size: 1.5em; }
+        .stat-box { text-align: center; padding: 20px; }
+        .stat-number { font-size: 3em; font-weight: bold; color: #667eea; margin: 10px 0; }
+        .stat-label { color: #6b7280; font-size: 1.1em; text-transform: uppercase; letter-spacing: 1px; }
+        .threat-level {
+            display: inline-block; padding: 5px 12px; border-radius: 20px;
+            font-size: 0.85em; font-weight: bold; margin: 5px;
+        }
+        .threat-low { background: #dbeafe; color: #1e40af; }
+        .threat-medium { background: #fef3c7; color: #92400e; }
+        .threat-high { background: #fee2e2; color: #991b1b; }
+        .threat-critical { background: #fce7f3; color: #9f1239; }
+        .alerts-container {
+            background: rgba(255, 255, 255, 0.95); border-radius: 15px; padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1); max-height: 600px; overflow-y: auto;
+        }
+        .alert-item {
+            border-left: 4px solid; padding: 15px; margin-bottom: 15px;
+            background: #f9fafb; border-radius: 8px; animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .alert-critical { border-left-color: #ec4899; }
+        .alert-high { border-left-color: #ef4444; }
+        .alert-medium { border-left-color: #f59e0b; }
+        .alert-low { border-left-color: #3b82f6; }
+        .alert-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+        }
+        .alert-title { font-weight: bold; font-size: 1.1em; color: #111827; }
+        .alert-time { color: #6b7280; font-size: 0.9em; }
+        .alert-description { color: #4b5563; margin: 10px 0; }
+        .alert-action { color: #667eea; font-style: italic; margin-top: 10px; }
+        .chart-container { position: relative; height: 300px; margin-top: 20px; }
+        .message {
+            padding: 15px; margin: 10px 0; border-radius: 8px; background: #f3f4f6;
+            border-left: 4px solid #667eea;
+        }
+        .message.error { background: #fee2e2; border-left-color: #ef4444; }
+        .message.success { background: #d1fae5; border-left-color: #10b981; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚁 Drone Intrusion Detection System</h1>
+            <div><span class="status-badge" id="connectionStatus">Offline</span></div>
+        </div>
+        <div class="controls">
+            <button class="btn btn-success" onclick="startRealTime()">▶️ Start Real-Time Monitoring</button>
+            <button class="btn btn-danger" onclick="stopRealTime()" id="stopBtn" disabled>⏹️ Stop Monitoring</button>
+            <button class="btn btn-primary" onclick="runTests()">🧪 Run Test Scenarios</button>
+            <div class="input-group">
+                <input type="text" id="connectionString" placeholder="Connection (e.g., udp:127.0.0.1:14550)" value="udp:127.0.0.1:14550">
+            </div>
+        </div>
+        <div id="messages"></div>
+        <div class="dashboard-grid">
+            <div class="card">
+                <h2>📊 Statistics</h2>
+                <div class="stat-box">
+                    <div class="stat-label">Total Alerts</div>
+                    <div class="stat-number" id="totalAlerts">0</div>
+                </div>
+            </div>
+            <div class="card">
+                <h2>⚠️ Threat Levels</h2>
+                <div id="threatLevels"><div>No threats detected</div></div>
+            </div>
+            <div class="card">
+                <h2>🎯 Attack Types</h2>
+                <div id="attackTypes"><div>No attacks detected</div></div>
+            </div>
+        </div>
+        <div class="card">
+            <h2>📈 Threat Distribution</h2>
+            <div class="chart-container"><canvas id="threatChart"></canvas></div>
+        </div>
+        <div class="alerts-container">
+            <h2>🚨 Recent Alerts</h2>
+            <div id="alertsList">
+                <div class="message">No alerts yet. Start monitoring to see real-time alerts.</div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const socket = io();
+        const ctx = document.getElementById('threatChart').getContext('2d');
+        const threatChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Low', 'Medium', 'High', 'Critical'],
+                datasets: [{
+                    data: [0, 0, 0, 0],
+                    backgroundColor: ['#3b82f6', '#f59e0b', '#ef4444', '#ec4899']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } }
+            }
+        });
+        socket.on('connect', () => {
+            updateConnectionStatus(true);
+            addMessage('Connected to IDS server', 'success');
+            loadStatus();
+        });
+        socket.on('disconnect', () => {
+            updateConnectionStatus(false);
+            addMessage('Disconnected from server', 'error');
+        });
+        socket.on('status', (data) => addMessage(data.message, 'success'));
+        socket.on('error', (data) => addMessage(data.message, 'error'));
+        socket.on('new_alert', (alert) => { addAlert(alert); loadStatus(); });
+        socket.on('status_update', (status) => updateDashboard(status));
+        socket.on('heartbeat', () => {});
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById('connectionStatus');
+            if (connected) {
+                statusEl.textContent = 'Online';
+                statusEl.className = 'status-badge status-online';
+            } else {
+                statusEl.textContent = 'Offline';
+                statusEl.className = 'status-badge status-offline';
+            }
+        }
+        function startRealTime() {
+            const connectionString = document.getElementById('connectionString').value;
+            if (!connectionString) {
+                addMessage('Please enter a connection string', 'error');
+                return;
+            }
+            socket.emit('start_real_time', { connection_string: connectionString });
+            document.getElementById('stopBtn').disabled = false;
+            addMessage('Starting real-time monitoring...', 'success');
+        }
+        function stopRealTime() {
+            socket.emit('stop_real_time');
+            document.getElementById('stopBtn').disabled = true;
+            addMessage('Stopped real-time monitoring', 'success');
+        }
+        function runTests() {
+            fetch('/api/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ test_type: 'all' })
+            })
+            .then(res => res.json())
+            .then(data => addMessage('Test scenarios started', 'success'))
+            .catch(err => addMessage('Error starting tests: ' + err, 'error'));
+        }
+        function loadStatus() {
+            fetch('/api/status')
+                .then(res => res.json())
+                .then(data => updateDashboard(data))
+                .catch(err => console.error('Error loading status:', err));
+        }
+        function updateDashboard(status) {
+            document.getElementById('totalAlerts').textContent = status.total_alerts || 0;
+            const threatLevelsEl = document.getElementById('threatLevels');
+            if (status.threat_levels && Object.keys(status.threat_levels).length > 0) {
+                threatLevelsEl.innerHTML = Object.entries(status.threat_levels)
+                    .map(([level, count]) => 
+                        `<span class="threat-level threat-${level.toLowerCase()}">${level}: ${count}</span>`
+                    ).join('');
+            } else {
+                threatLevelsEl.innerHTML = '<div>No threats detected</div>';
+            }
+            const attackTypesEl = document.getElementById('attackTypes');
+            if (status.attack_types && Object.keys(status.attack_types).length > 0) {
+                attackTypesEl.innerHTML = Object.entries(status.attack_types)
+                    .map(([type, count]) => `<div>${type}: ${count}</div>`)
+                    .join('');
+            } else {
+                attackTypesEl.innerHTML = '<div>No attacks detected</div>';
+            }
+            const levels = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+            threatChart.data.datasets[0].data = levels.map(level => status.threat_levels[level] || 0);
+            threatChart.update();
+        }
+        function addAlert(alert) {
+            const alertsList = document.getElementById('alertsList');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert-item alert-${alert.threat_level.toLowerCase()}`;
+            const time = new Date(alert.timestamp).toLocaleString();
+            alertDiv.innerHTML = `
+                <div class="alert-header">
+                    <span class="alert-title">${alert.attack_type}</span>
+                    <span class="alert-time">${time}</span>
+                </div>
+                <div class="alert-description">${alert.description}</div>
+                <div class="alert-action">💡 ${alert.recommended_action}</div>
+            `;
+            alertsList.insertBefore(alertDiv, alertsList.firstChild);
+            while (alertsList.children.length > 50) {
+                alertsList.removeChild(alertsList.lastChild);
+            }
+        }
+        function addMessage(message, type = '') {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = message;
+            messagesDiv.appendChild(messageDiv);
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.parentNode.removeChild(messageDiv);
+                }
+            }, 5000);
+        }
+        setInterval(loadStatus, 5000);
+        loadStatus();
+    </script>
+</body>
+</html>
