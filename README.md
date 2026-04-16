@@ -64,7 +64,7 @@ drone_ids_dashboard/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/<your-username>/drone_ids_dashboard.git
+git clone https://github.com/jaibhortake/drone_ids_dashboard.git
 cd drone_ids_dashboard
 ```
 
@@ -264,13 +264,6 @@ This project is licensed under the **MIT License**.
 
 ---
 
-## 👤 Author
-
-**Jai Bhortake**  
-Final Year Project — Drone Intrusion Detection System  
-📧 Connect on [GitHub](https://github.com/<your-username>)
-
----
 
 <div align="center">
 ⭐ If you found this project useful, please give it a star!
