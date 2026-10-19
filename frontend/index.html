@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone IDS</title>
+    <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Token gate -->
+    <div class="overlay" id="authOverlay" hidden>
+        <form class="auth-card" id="authForm">
+            <div class="brand brand-lg"><span class="brand-mark"></span>Drone IDS</div>
+            <p class="muted">Enter the access token printed in the server log (or set via <code>IDS_TOKEN</code>).</p>
+            <input type="password" id="tokenInput" placeholder="Access token" autocomplete="current-password" required>
+            <p class="error-text" id="authError" hidden>Invalid token.</p>
+            <button class="btn btn-primary btn-block" type="submit">Unlock dashboard</button>
+        </form>
+    </div>
+
+    <header class="topbar">
+        <div class="brand"><span class="brand-mark"></span>Drone IDS</div>
+        <div class="topbar-status">
+            <span class="pill" id="serverPill"><span class="dot"></span><span id="serverText">Offline</span></span>
+            <span class="pill" id="monitorPill"><span class="dot"></span><span id="monitorText">Idle</span></span>
+            <button class="icon-btn" id="soundBtn" type="button" title="Toggle critical-alert sound" aria-pressed="false">🔕</button>
+            <button class="icon-btn" id="logoutBtn" type="button" title="Forget token">⎋</button>
+        </div>
+    </header>
+
+    <main class="layout">
+        <section class="panel controls">
+            <div class="control-group grow">
+                <label for="connectionString">MAVLink connection</label>
+                <div class="input-row">
+                    <input type="text" id="connectionString" value="udp:127.0.0.1:14550" spellcheck="false" maxlength="200">
+                    <button class="btn btn-primary" id="startBtn" type="button">Start monitoring</button>
+                    <button class="btn btn-ghost" id="stopBtn" type="button" disabled>Stop</button>
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="scenarioSelect">Attack scenarios</label>
+                <div class="input-row">
+                    <select id="scenarioSelect"><option value="all">All scenarios</option></select>
+                    <button class="btn btn-secondary" id="testBtn" type="button">Run</button>
+                </div>
+            </div>
+            <div class="control-group">
+                <label>Export</label>
+                <div class="input-row">
+                    <button class="btn btn-ghost" data-export="csv" type="button">CSV</button>
+                    <button class="btn btn-ghost" data-export="json" type="button">JSON</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="kpis">
+            <div class="panel kpi"><span class="kpi-label">Total alerts</span><span class="kpi-value" id="kpiTotal">0</span></div>
+            <div class="panel kpi kpi-critical"><span class="kpi-label">Critical</span><span class="kpi-value" id="kpiCritical">0</span></div>
+            <div class="panel kpi kpi-warn"><span class="kpi-label">Unacknowledged</span><span class="kpi-value" id="kpiUnacked">0</span></div>
+            <div class="panel kpi"><span class="kpi-label">Flight mode</span><span class="kpi-value kpi-text" id="kpiMode">—</span></div>
+        </section>
+
+        <section class="grid">
+            <div class="panel span-2">
+                <div class="panel-head"><h2>GPS track</h2><span class="muted small" id="posText">No position yet</span></div>
+                <div id="map" class="map"></div>
+            </div>
+            <div class="panel">
+                <div class="panel-head"><h2>Threat levels</h2></div>
+                <div class="chart-box"><canvas id="levelChart"></canvas></div>
+            </div>
+            <div class="panel span-2">
+                <div class="panel-head"><h2>Attitude</h2><span class="muted small">roll / pitch, degrees</span></div>
+                <div class="chart-box"><canvas id="attitudeChart"></canvas></div>
+            </div>
+            <div class="panel">
+                <div class="panel-head"><h2>Attack types</h2></div>
+                <ul class="bar-list" id="attackTypes"><li class="muted">No attacks detected</li></ul>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head">
+                <h2>Alerts</h2>
+                <div class="filters" role="group" aria-label="Minimum severity">
+                    <button class="chip active" data-level="" type="button">All</button>
+                    <button class="chip" data-level="MEDIUM" type="button">Medium+</button>
+                    <button class="chip" data-level="HIGH" type="button">High+</button>
+                    <button class="chip" data-level="CRITICAL" type="button">Critical</button>
+                    <label class="toggle"><input type="checkbox" id="hideAcked"> Hide acknowledged</label>
+                </div>
+            </div>
+            <ul class="alert-list" id="alertList"></ul>
+            <p class="empty muted" id="alertEmpty">No alerts yet. Start monitoring or run a scenario.</p>
+        </section>
+    </main>
+
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+
+    <template id="alertTemplate">
+        <li class="alert">
+            <span class="sev"></span>
+            <div class="alert-body">
+                <div class="alert-top">
+                    <span class="alert-type"></span>
+                    <span class="alert-source muted small"></span>
+                    <time class="alert-time muted small"></time>
+                </div>
+                <p class="alert-desc"></p>
+                <p class="alert-action small"></p>
+            </div>
+            <button class="btn btn-ghost btn-sm ack-btn" type="button">Acknowledge</button>
+        </li>
+    </template>
+
+    <script src="vendor/socket.io.min.js"></script>
+    <script src="vendor/chart.umd.min.js"></script>
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

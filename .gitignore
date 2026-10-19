@@ -42,3 +42,7 @@ logs/
 dist/
 build/
 *.egg-info/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/

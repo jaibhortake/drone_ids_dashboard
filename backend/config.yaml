@@ -1,0 +1,18 @@
+# Overrides for ids/config.py DEFAULT_CONFIG. Unknown keys are rejected at startup.
+network:
+  authorized_ips: ["127.0.0.1", "192.168.1.100"]
+  authorized_system_ids: [1, 255]   # 1 = vehicle, 255 = ground station
+  authorized_gcs_ids: [255]         # only these may send commands
+  max_commands_per_second: 10
+gps:
+  max_speed_mps: 30
+  min_satellites: 4
+  max_divergence_m: 50
+behavioral:
+  authorized_modes: [STABILIZE, GUIDED, AUTO, RTL, LAND, LOITER, ALT_HOLD]
+  max_tilt_deg: 60
+link:
+  heartbeat_timeout_s: 5
+alerts:
+  cooldown_s: 5
+  max_in_memory: 500
